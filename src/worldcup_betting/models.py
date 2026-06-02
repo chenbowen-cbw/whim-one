@@ -59,6 +59,8 @@ class MarketOdds:
     match_id: str
     decimal_odds: dict[Outcome, float]
     captured_at: datetime = field(default_factory=datetime.utcnow)
+    metadata: dict = field(default_factory=dict)
+    """携带风控相关的盘口信号，如 {"liquidity":..,"spread":{...},"source":"slug"}。"""
 
     def __post_init__(self) -> None:
         for o in Outcome:

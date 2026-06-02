@@ -78,14 +78,34 @@ examples/analyze_match.py 主流程示例（带报告打印）
 tests/test_analytics.py   单元测试
 ```
 
-## 接真实数据
+## 真实数据源
 
-`tools/match_data.py` 与 `tools/odds_providers.py` 中的 Provider 已抽象为接口，
-接实盘只需新增实现：
+**Polymarket 已接入真实数据**（`tools/polymarket.py`，Gamma API，公开免鉴权）：
 
-- **体彩**：解析竞彩足球胜平负固定赔率
-- **Polymarket**：经 Gamma/CLOB API 读取 outcome 价格（`1/price` 转十进制赔率）
-- **赛事数据**：API-Football / FotMob 等补充 xG、阵容等特征
+```bash
+python examples/polymarket_live.py            # 真实夺冠盘概率排行
+python examples/polymarket_live.py --list     # 列出对阵/世界杯赛事
+python examples/polymarket_live.py --slug <event-slug> --home "队A" --away "队B"  # 逐场1X2
+```
+
+实测输出（真实行情）：
+
+```
+【世界杯夺冠盘 · 真实 Polymarket 行情】 48 队
+  France      16.6%   赔率 5.87   流动性 $877,110
+  Spain       15.9%   赔率 6.12   流动性 $921,041
+  Argentina    8.5%   赔率 11.43  流动性 $1,352,519
+```
+
+- 价格(0~1)即隐含概率，按 `1/price` 转十进制赔率，与体彩同坐标系比较。
+- 同时抓取 `liquidity`/`spread` 作为风控信号（写入 `MarketOdds.metadata`）。
+- 支持两种盘口形式：单一三选市场、negRisk 分组的三个二元市场。
+- 逐场胜平负市场通常临近开赛才开盘；未开盘时用夺冠盘演示真实数据流，且会优雅报错提示可用选项。
+
+其余数据源仍为接口 + Mock，接实盘只需新增实现：
+
+- **体彩**：解析竞彩足球胜平负固定赔率（官方无公开 API，需抓页面，注意合规与频率）
+- **赛事数据**：API-Football / FotMob / football-data.org 补充 xG、阵容等特征
 
 ## 合规声明
 

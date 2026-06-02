@@ -1,0 +1,23 @@
+[project]
+name = "worldcup-betting-agents"
+version = "0.1.0"
+description = "世界杯多智能体赛事分析与投注推荐系统（仅分析推荐，不自动下注）"
+requires-python = ">=3.10"
+dependencies = [
+    # 智能体层（可选）：仅在启用 --agents 时需要
+    # "claude-agent-sdk>=0.1.0",
+]
+
+[project.optional-dependencies]
+agents = ["claude-agent-sdk>=0.1.0"]
+dev = ["pytest>=7.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

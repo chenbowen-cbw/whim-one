@@ -16,6 +16,7 @@ class RiskConfig:
     max_fraction_per_bet: float = 0.05   # 单注资金占比上限 5%
     max_total_exposure: float = 0.20     # 单场全部建议合计占比上限 20%
     min_confidence: float = 0.40    # 模型置信度低于此值则不出建议
+    min_liquidity: float = 50_000.0  # 盘口流动性($)下限，过低则不出建议（防滑点/错盘）
 
 
 @dataclass

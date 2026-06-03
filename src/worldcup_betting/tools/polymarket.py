@@ -69,6 +69,10 @@ class PolymarketClient:
         data = _get_json(f"{self.base}/events?{q}", self.timeout)
         return data if isinstance(data, list) else data.get("data", [])
 
+    def find_match_events(self, *, limit: int = 300) -> list[dict]:
+        """筛出可解析的逐场胜平负赛事（标题含对阵 + 含 Draw 选项）。"""
+        return [e for e in self.list_events(limit=limit) if is_three_way_match(e)]
+
     def find_soccer_events(self, *, limit: int = 200) -> list[dict]:
         """启发式筛出对阵类/世界杯赛事（标题含 ' vs '/'world cup'）。"""
         out = []
@@ -194,6 +198,58 @@ def event_to_outright_probs(event: dict) -> list[dict]:
         r["fair_prob"] = r["raw_price"] / total if total else 0.0
     rows.sort(key=lambda r: -r["fair_prob"])
     return rows
+
+
+def parse_match_title(title: str) -> tuple[str, str] | None:
+    """从赛事标题解析 (home, away)，识别 'A vs B' / 'A vs. B' / 'A v B'。
+
+    Polymarket 习惯按 '主队 vs 客队' 排列；无法解析时返回 None。
+    """
+    import re as _re
+
+    m = _re.search(r"(.+?)\s+vs\.?\s+(.+)", title, _re.IGNORECASE) or \
+        _re.search(r"(.+?)\s+v\s+(.+)", title, _re.IGNORECASE)
+    if not m:
+        return None
+    home, away = m.group(1).strip(), m.group(2).strip()
+    # 去掉可能的赛事后缀，如 "(World Cup)"
+    away = _re.split(r"[(\[|]", away)[0].strip()
+    if home and away:
+        return home, away
+    return None
+
+
+def is_three_way_match(event: dict) -> bool:
+    """粗判一个 event 是否为可解析的胜平负赛事（标题含对阵且含 Draw 选项）。"""
+    if not parse_match_title(event.get("title", "")):
+        return False
+    labels = [
+        str(m.get("groupItemTitle") or m.get("question") or "").lower()
+        for m in event.get("markets", []) or []
+    ]
+    has_draw = any(l in ("draw", "tie") for l in labels)
+    # 单一三选市场的情况：outcomes 含 Draw
+    for m in event.get("markets", []) or []:
+        outs = [str(x).lower() for x in _parse_json_field(m.get("outcomes"), [])]
+        if "draw" in outs or "tie" in outs:
+            has_draw = True
+    return has_draw
+
+
+def discover_match_odds(event: dict) -> MarketOdds | None:
+    """自动从一个对阵 event 解析出 1X2 MarketOdds（主/客按标题顺序）。
+
+    成功返回 MarketOdds，失败(非对阵/未开三选)返回 None。
+    """
+    parsed = parse_match_title(event.get("title", ""))
+    if not parsed:
+        return None
+    home, away = parsed
+    mapping = {Outcome.HOME: home, Outcome.AWAY: away}
+    try:
+        return event_to_market_odds(event, match_id=event.get("slug", "unknown"), mapping=mapping)
+    except PolymarketError:
+        return None
 
 
 class PolymarketProvider(OddsProvider):

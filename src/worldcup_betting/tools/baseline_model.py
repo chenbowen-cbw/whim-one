@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import math
 
-from ..models import Match, Outcome, Prediction
+from ..models import Match, MarketOdds, Outcome, Prediction
+from .analytics import remove_vig
 
 _FORM_POINTS = {"W": 3.0, "D": 1.0, "L": 0.0}
 
@@ -63,4 +64,22 @@ def baseline_predict(match: Match, *, home_advantage: float = 0.15) -> Predictio
             f"{match.away.name}(rank {match.away.fifa_rank})，"
             f"含主场加成 {home_advantage}。"
         ),
+    )
+
+
+def market_devig_prediction(odds: MarketOdds, *, gamma: float = 1.10) -> Prediction:
+    """仅凭盘口得出 1X2 基线预测：去抽水 + 热门-冷门偏差修正(p∝p^gamma)。
+
+    适用于没有球队基本面数据的真实比赛——直接用市场自身估"真实"概率。
+    gamma=1.0 即等于市场(零观点)；>1 抬高热门、压低冷门。
+    """
+    fair = remove_vig(odds.decimal_odds)
+    powered = {o: max(p, 1e-9) ** gamma for o, p in fair.items()}
+    total = sum(powered.values())
+    probs = {o: powered[o] / total for o in Outcome}
+    return Prediction(
+        match_id=odds.match_id,
+        probabilities=probs,
+        confidence=0.45,
+        rationale=f"盘口基线：去抽水后做热门-冷门修正(gamma={gamma})。",
     )

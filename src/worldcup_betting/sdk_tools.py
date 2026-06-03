@@ -109,12 +109,35 @@ async def evaluate_value_bets(args: dict) -> dict:
     )
 
 
+@tool("get_outright_market", "获取世界杯夺冠盘真实行情（各队去抽水隐含概率/赔率/流动性）", {})
+async def get_outright_market(args: dict) -> dict:
+    from .tools.polymarket import PolymarketClient, event_to_outright_probs
+
+    event = PolymarketClient().get_event_by_slug("world-cup-winner")
+    rows = event_to_outright_probs(event)
+    return _text(
+        {
+            "source": "polymarket:world-cup-winner",
+            "teams": [
+                {
+                    "team": r["team"],
+                    "market_prob": round(r["fair_prob"], 4),
+                    "decimal_odds": round(r["decimal_odds"], 2),
+                    "liquidity": round(r["liquidity"], 0),
+                }
+                for r in rows
+            ],
+        }
+    )
+
+
 def build_mcp_server():
     """创建供 ClaudeAgentOptions 使用的 in-process MCP server。"""
     return create_sdk_mcp_server(
         name="betting-tools",
         version="1.0.0",
-        tools=[get_match, get_odds, baseline_prediction, evaluate_value_bets],
+        tools=[get_match, get_odds, baseline_prediction, evaluate_value_bets,
+               get_outright_market],
     )
 
 
@@ -124,4 +147,5 @@ TOOL_NAMES = [
     "mcp__betting-tools__get_odds",
     "mcp__betting-tools__baseline_prediction",
     "mcp__betting-tools__evaluate_value_bets",
+    "mcp__betting-tools__get_outright_market",
 ]

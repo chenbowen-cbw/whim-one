@@ -159,6 +159,13 @@ def event_to_market_odds(
             f" 可用选项: {[m.get('groupItemTitle') or m.get('question') for m in markets]}"
         )
 
+    # 极端价格(0/1)代表无有效盘口(已结算/无报价)，抛 PolymarketError 让上层走降级而非崩溃
+    bad = {o.value: p for o, p in prices.items() if not 0.0 < p < 1.0}
+    if bad:
+        raise PolymarketError(
+            f"事件 {event.get('slug')} 含越界价格(非0~1，无有效盘口): {bad}"
+        )
+
     decimal = {o: polymarket_price_to_decimal(p) for o, p in prices.items()}
     return MarketOdds(
         bookmaker=Bookmaker.POLYMARKET,
@@ -183,7 +190,7 @@ def event_to_outright_probs(event: dict) -> list[dict]:
     rows = []
     for m in event.get("markets", []) or []:
         yp = _yes_price(m)
-        if yp is None or yp <= 0:
+        if yp is None or not 0.0 < yp < 1.0:  # 越界价格(0/1)=无有效盘口，跳过该队
             continue
         rows.append(
             {

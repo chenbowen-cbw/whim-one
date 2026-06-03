@@ -21,20 +21,19 @@ def build_recommendations(
     if prediction.confidence < cfg.min_confidence:
         return []
 
-    # 2. 只保留价值项，并施加单注上限
+    # 2. 只保留价值项，并施加单注上限（不修改共享的 ValueAssessment，保留原始审计值）
     value_items = [a for a in assessments if a.is_value]
-    for a in value_items:
-        a.kelly_fraction = min(a.kelly_fraction, cfg.max_fraction_per_bet)
+    capped = [(a, min(a.kelly_fraction, cfg.max_fraction_per_bet)) for a in value_items]
 
     # 3. 组合敞口上限：合计超限则等比缩放
-    total = sum(a.kelly_fraction for a in value_items)
+    total = sum(f for _, f in capped)
     scale = 1.0
     if total > cfg.max_total_exposure and total > 0:
         scale = cfg.max_total_exposure / total
 
     recs: list[BetRecommendation] = []
-    for a in value_items:
-        frac = a.kelly_fraction * scale
+    for a, capped_frac in capped:
+        frac = capped_frac * scale
         if frac <= 0:
             continue
         recs.append(

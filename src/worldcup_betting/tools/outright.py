@@ -58,7 +58,11 @@ def scan_outright_value(
         scaled = min(kelly_fraction(p, d) * cfg.kelly_scale, cfg.max_fraction_per_bet)
 
         # 风控闸
-        if liq < cfg.min_liquidity:
+        if row["fair_prob"] < cfg.min_market_prob:
+            reason = (f"盘口隐含 {row['fair_prob']:.2%} 低于下限 {cfg.min_market_prob:.0%}，"
+                      f"极端冷门不可信(含冷门溢价)，否决")
+            is_value, frac = False, 0.0
+        elif liq < cfg.min_liquidity:
             reason = f"流动性 ${liq:,.0f} 低于下限 ${cfg.min_liquidity:,.0f}，防滑点否决"
             is_value, frac = False, 0.0
         elif edge < cfg.edge_threshold:

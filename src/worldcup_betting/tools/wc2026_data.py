@@ -18,7 +18,7 @@ GROUPS: dict[str, list[tuple[str, float]]] = {
     "E": [("France", 93), ("Switzerland", 74), ("Senegal", 73), ("Jordan", 50)],
     "F": [("Argentina", 90), ("Austria", 71), ("South Korea", 70), ("Panama", 49)],
     "G": [("England", 89), ("Uruguay", 78), ("Iran", 64), ("Saudi Arabia", 54)],
-    "H": [("Brazil", 89), ("Denmark", 75), ("Mexico B", 60), ("Curacao", 45)],
+    "H": [("Brazil", 89), ("Denmark", 75), ("Serbia", 68), ("Curacao", 45)],
     "I": [("Portugal", 88), ("Morocco", 76), ("Australia", 66), ("Haiti", 46)],
     "J": [("Netherlands", 85), ("Nigeria", 71), ("Scotland", 65), ("Cape Verde", 52)],
     "K": [("Germany", 86), ("Belgium", 82), ("Paraguay", 63), ("Jamaica", 53)],

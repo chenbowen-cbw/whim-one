@@ -28,3 +28,20 @@ GROUPS: dict[str, list[tuple[str, float]]] = {
 
 def default_ratings() -> dict[str, float]:
     return {name: power for teams in GROUPS.values() for name, power in teams}
+
+
+def calibrated_groups_or_default() -> dict[str, list[tuple[str, float]]]:
+    """加载预计算的校准评分(data/calibrated_groups.json)；缺失则回退到示意分组。
+
+    供无法在请求时现算校准的环境(如 serverless)使用。
+    """
+    import json
+    import os
+
+    path = os.path.join(os.path.dirname(__file__), "..", "data", "calibrated_groups.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return {g: [(n, float(p)) for n, p in teams] for g, teams in data["groups"].items()}
+    except (OSError, KeyError, ValueError):
+        return GROUPS

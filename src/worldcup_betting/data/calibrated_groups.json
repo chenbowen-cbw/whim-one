@@ -1,0 +1,222 @@
+{
+ "home_adv": 0.2221,
+ "n_matches": 14693,
+ "groups": {
+  "A": [
+   [
+    "Mexico",
+    68.0
+   ],
+   [
+    "Norway",
+    67.1
+   ],
+   [
+    "Ivory Coast",
+    71.0
+   ],
+   [
+    "New Zealand",
+    70.3
+   ]
+  ],
+  "B": [
+   [
+    "Canada",
+    70.3
+   ],
+   [
+    "Ecuador",
+    59.8
+   ],
+   [
+    "Egypt",
+    68.0
+   ],
+   [
+    "Uzbekistan",
+    68.5
+   ]
+  ],
+  "C": [
+   [
+    "USA",
+    68.0
+   ],
+   [
+    "Colombia",
+    66.8
+   ],
+   [
+    "Tunisia",
+    68.2
+   ],
+   [
+    "Qatar",
+    61.6
+   ]
+  ],
+  "D": [
+   [
+    "Spain",
+    89.5
+   ],
+   [
+    "Croatia",
+    71.7
+   ],
+   [
+    "Japan",
+    88.6
+   ],
+   [
+    "Ghana",
+    62.7
+   ]
+  ],
+  "E": [
+   [
+    "France",
+    80.9
+   ],
+   [
+    "Switzerland",
+    69.1
+   ],
+   [
+    "Senegal",
+    73.6
+   ],
+   [
+    "Jordan",
+    66.5
+   ]
+  ],
+  "F": [
+   [
+    "Argentina",
+    77.7
+   ],
+   [
+    "Austria",
+    64.7
+   ],
+   [
+    "South Korea",
+    75.7
+   ],
+   [
+    "Panama",
+    61.4
+   ]
+  ],
+  "G": [
+   [
+    "England",
+    85.8
+   ],
+   [
+    "Uruguay",
+    65.0
+   ],
+   [
+    "Iran",
+    80.7
+   ],
+   [
+    "Saudi Arabia",
+    64.5
+   ]
+  ],
+  "H": [
+   [
+    "Brazil",
+    78.2
+   ],
+   [
+    "Denmark",
+    71.5
+   ],
+   [
+    "Serbia",
+    59.0
+   ],
+   [
+    "Curacao",
+    62.8
+   ]
+  ],
+  "I": [
+   [
+    "Portugal",
+    82.7
+   ],
+   [
+    "Morocco",
+    78.0
+   ],
+   [
+    "Australia",
+    78.0
+   ],
+   [
+    "Haiti",
+    63.8
+   ]
+  ],
+  "J": [
+   [
+    "Netherlands",
+    81.2
+   ],
+   [
+    "Nigeria",
+    67.4
+   ],
+   [
+    "Scotland",
+    57.3
+   ],
+   [
+    "Cape Verde",
+    55.6
+   ]
+  ],
+  "K": [
+   [
+    "Germany",
+    83.3
+   ],
+   [
+    "Belgium",
+    84.1
+   ],
+   [
+    "Paraguay",
+    49.1
+   ],
+   [
+    "Jamaica",
+    54.8
+   ]
+  ],
+  "L": [
+   [
+    "Italy",
+    71.0
+   ],
+   [
+    "Algeria",
+    75.6
+   ],
+   [
+    "Peru",
+    50.1
+   ],
+   [
+    "Honduras",
+    52.6
+   ]
+  ]
+ }
+}

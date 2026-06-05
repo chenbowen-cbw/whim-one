@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import math
 import os
+import tempfile
 import urllib.request
 from dataclasses import dataclass
 from datetime import date
@@ -51,10 +52,21 @@ def _importance(tournament: str) -> float:
 
 
 def ensure_cached(url: str = DATA_URL, path: str = CACHE) -> str:
-    if not os.path.exists(path) or os.path.getsize(path) == 0:
-        req = urllib.request.Request(url, headers={"User-Agent": "worldcup-betting/0.1"})
-        with urllib.request.urlopen(req, timeout=30) as resp, open(path, "wb") as f:
-            f.write(resp.read())
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        return path
+    # 只读文件系统(如 serverless)下，回退到可写的临时目录
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        test_dir = os.path.dirname(path) or "."
+        if not os.access(test_dir, os.W_OK):
+            raise OSError
+    except OSError:
+        path = os.path.join(tempfile.gettempdir(), "wc_results_cache.csv")
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            return path
+    req = urllib.request.Request(url, headers={"User-Agent": "worldcup-betting/0.1"})
+    with urllib.request.urlopen(req, timeout=30) as resp, open(path, "wb") as f:
+        f.write(resp.read())
     return path
 
 

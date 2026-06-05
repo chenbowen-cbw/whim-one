@@ -15,10 +15,6 @@ dev = ["pytest>=7.0"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-# Vercel Python 入口：WSGI app，见 api/index.py
-[tool.vercel]
-entrypoint = "api/index.py"
-
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"

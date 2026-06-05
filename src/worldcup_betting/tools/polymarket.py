@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -33,13 +34,23 @@ class PolymarketError(RuntimeError):
     """拉取或解析 Polymarket 数据失败。"""
 
 
-def _get_json(url: str, timeout: float = 20.0):
+def _get_json(url: str, timeout: float = 20.0, *, retries: int = 3, backoff: float = 0.6):
+    """GET 并解析 JSON，对暂时性故障(5xx/超时/网络抖动)做退避重试。"""
     req = urllib.request.Request(url, headers={"User-Agent": "worldcup-betting/0.1"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-        raise PolymarketError(f"请求失败 {url}: {e}") from e
+    last: Exception | None = None
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code < 500:  # 4xx 不会自愈，直接失败
+                break
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+            last = e
+        if attempt < retries - 1:
+            time.sleep(backoff * (2 ** attempt))
+    raise PolymarketError(f"请求失败 {url}: {last}") from last
 
 
 def _parse_json_field(value, default):

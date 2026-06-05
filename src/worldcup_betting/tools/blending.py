@@ -51,3 +51,30 @@ def blend_beliefs(
 
     total = sum(raw.values()) or 1.0
     return {k: v / total for k, v in raw.items()}
+
+
+def blend_independent(
+    model: dict[str, float],
+    market: dict[str, float],
+    *,
+    weight: float = 0.35,
+) -> dict[str, float]:
+    """独立(非互斥)事件的收缩，用 logit(对数几率)线性混合，逐队独立、不跨队归一。
+
+    适用于"进16强/8强/4强"这类各队各自成立的 Yes/No 盘口（概率之和不为1）：
+        logit(p_blend) = λ·logit(p_model) + (1-λ)·logit(p_market)
+    λ=0 纯盘口，λ=1 纯模型。
+    """
+    if not 0.0 <= weight <= 1.0:
+        raise ValueError(f"weight 需在 [0,1]，得到 {weight}")
+
+    def _logit(p: float) -> float:
+        p = min(max(p, _EPS), 1.0 - _EPS)
+        return math.log(p / (1.0 - p))
+
+    out: dict[str, float] = {}
+    for k in model:
+        if k in market:
+            z = weight * _logit(model[k]) + (1 - weight) * _logit(market[k])
+            out[k] = 1.0 / (1.0 + math.exp(-z))
+    return out

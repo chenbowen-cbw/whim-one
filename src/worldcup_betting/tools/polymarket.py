@@ -80,6 +80,13 @@ class PolymarketClient:
         data = _get_json(f"{self.base}/events?{q}", self.timeout)
         return data if isinstance(data, list) else data.get("data", [])
 
+    def world_cup_events(self, *, limit: int = 80) -> list[dict]:
+        """一次拉取所有世界杯相关赛事(含各自子盘口与价格)。"""
+        q = urllib.parse.urlencode({"limit": limit, "active": "true", "closed": "false",
+                                    "tag_slug": "world-cup"})
+        data = _get_json(f"{self.base}/events?{q}", self.timeout)
+        return data if isinstance(data, list) else data.get("data", [])
+
     def find_match_events(self, *, limit: int = 300) -> list[dict]:
         """筛出可解析的逐场胜平负赛事（标题含对阵 + 含 Draw 选项）。"""
         return [e for e in self.list_events(limit=limit) if is_three_way_match(e)]

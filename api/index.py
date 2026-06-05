@@ -34,7 +34,12 @@ from worldcup_betting.tools.polymarket import (  # noqa: E402
     PolymarketError,
     event_to_outright_probs,
 )
-from worldcup_betting.tools.tournament import championship_probabilities  # noqa: E402
+from worldcup_betting.tools.market_scan import scan_world_cup  # noqa: E402
+from worldcup_betting.tools.tournament import (  # noqa: E402
+    championship_probabilities,
+    team_groups,
+    tournament_probabilities,
+)
 from worldcup_betting.tools.wc2026_data import calibrated_groups_or_default  # noqa: E402
 
 _INDEX_HTML = r"""<!doctype html>
@@ -92,6 +97,8 @@ _INDEX_HTML = r"""<!doctype html>
   .bet{background:#13231a;border:1px solid #265a3a;border-radius:12px;padding:14px 16px;margin:10px 0}
   .bet .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
   .bet .team{font-size:18px;font-weight:700}
+  .bet .mk{font-size:12px;font-weight:600;color:#bcd0ff;background:#21345c;
+        padding:2px 8px;border-radius:20px;vertical-align:2px;margin-left:4px}
   .bet .amt{font-size:18px;font-weight:700;color:var(--grn)}
   .bet .why{color:var(--mut);font-size:13px;margin-top:8px;line-height:1.6}
   .bet .how{margin-top:8px;font-size:13px}
@@ -110,8 +117,8 @@ _INDEX_HTML = r"""<!doctype html>
 <body>
 <div class="wrap">
   <header>
-    <h1>⚽ 世界杯夺冠 · 该不该买、买哪个</h1>
-    <div class="sub">用真实赔率 + 数据模型，帮你判断哪支球队"性价比"略高。仅供参考。</div>
+    <h1>⚽ 世界杯下注 · 该不该买、买哪个</h1>
+    <div class="sub">实时扫描 Polymarket 全部世界杯盘口（夺冠 / 小组头名 / 进各轮），用数据模型找"性价比"略高的。仅供参考。</div>
   </header>
   <div class="disc">⚠ <b>这不是稳赚的攻略，是研究工具</b>。模型并不完美，多数时候它会告诉你"没什么便宜可捡，建议别买"——
     这恰恰是诚实的。买不买、买多少由你自己决定，赌博有风险，可能血本无归，请量力而行、遵守当地法律。</div>
@@ -154,11 +161,9 @@ _INDEX_HTML = r"""<!doctype html>
     <div id="verdict" class="verdict" hidden></div>
     <div id="bets"></div>
     <details id="detail" hidden>
-      <summary>查看完整数据（进阶 / 给懂行的人看）</summary>
-      <table id="value-table" style="margin-top:10px">
-        <thead><tr><th>球队</th><th>模型概率</th><th>市场概率</th><th>修正后</th><th>edge</th><th>建议仓位</th></tr></thead>
-        <tbody></tbody>
-      </table>
+      <summary>本次扫描了哪些盘口？</summary>
+      <div id="scanned" class="muted" style="margin-top:8px"></div>
+      <div class="muted" style="margin-top:6px;font-size:12px">金球/金靴/洲别等无独立模型的盘口不在扫描内——没有依据就不给建议。</div>
     </details>
   </div>
 
@@ -216,56 +221,55 @@ async function loadMarket(){
 function betCard(o){
   const profit = o.stake_amount * (o.decimal_odds - 1);
   return `<div class="bet">
-    <div class="top"><span class="team">买 ${cn(o.team)} 夺冠</span>
+    <div class="top"><span class="team">买 ${cn(o.team)} <span class="mk">${o.market}</span></span>
       <span class="amt">建议投 ${money(o.stake_amount)}</span></div>
-    <div class="why">为什么：系统模型估它夺冠概率约 <b>${pct(o.model_prob)}</b>，
-      而市场现在只定价 <b>${pct(o.market_prob)}</b>，所以理论上略微"便宜"了一点。<br>
-      若押 ${money(o.stake_amount)} 赌中（赔率 ${o.decimal_odds.toFixed(1)} 倍），可赢回约 ${money(o.stake_amount*o.decimal_odds)}（净赚约 ${money(profit)}）；没中则亏掉这 ${money(o.stake_amount)}。</div>
+    <div class="why">为什么：模型估它「${o.market}」的概率约 <b>${pct(o.model_prob)}</b>，
+      而市场只定价 <b>${pct(o.market_prob)}</b>，理论上略微"便宜"了一点。<br>
+      押中（赔率 ${o.decimal_odds.toFixed(1)} 倍）可赢回约 ${money(o.stake_amount*o.decimal_odds)}（净赚约 ${money(profit)}）；没中则亏掉 ${money(o.stake_amount)}。</div>
     <div class="how">怎么买：去 <a href="https://polymarket.com" target="_blank" rel="noopener">Polymarket</a>
-      搜「World Cup Winner」→ 找到 ${cn(o.team)} → 买「Yes」。</div>
+      找「${marketEn(o.market)}」盘口 → 选 ${cn(o.team)} → 买「Yes」。</div>
   </div>`;
 }
 
-async function runValue(){
+function marketEn(m){
+  if(m==='夺冠') return 'World Cup Winner';
+  if(m==='进16强') return 'Nation To Reach Round of 16';
+  if(m==='进8强') return 'Nation To Reach Quarterfinals';
+  if(m==='进4强') return 'Nation To Reach Semifinals';
+  const g=m.match(/^([A-L])组头名$/); if(g) return 'World Cup Group '+g[1]+' Winner';
+  return m;
+}
+
+async function runScan(){
   const btn=document.getElementById('run'), st=document.getElementById('value-status');
   const verdict=document.getElementById('verdict'), bets=document.getElementById('bets');
   const detail=document.getElementById('detail');
   const w=document.getElementById('style').value;
   const bankroll=Math.max(1, +document.getElementById('bankroll').value||1000);
   btn.disabled=true; verdict.hidden=true; bets.innerHTML=''; detail.hidden=true;
-  st.hidden=false; st.className='muted'; st.innerHTML='<span class="spin"></span> 正在模拟几千届世界杯并对比实时盘口…';
+  st.hidden=false; st.className='muted';
+  st.innerHTML='<span class="spin"></span> 正在模拟几千届世界杯，并扫描全部世界杯盘口…';
   try{
-    const r=await fetch(`/api/value?weight=${w}&sims=4000&bankroll=${bankroll}`); const d=await r.json();
+    const r=await fetch(`/api/scan?weight=${w}&sims=4000&bankroll=${bankroll}`); const d=await r.json();
     if(d.error){ st.className='err'; st.textContent='分析失败，请稍后重试：'+(d.detail||d.error); btn.disabled=false; return; }
-    st.hidden=true;
+    st.hidden=true; verdict.hidden=false;
     if(d.value_count===0){
-      verdict.hidden=false;
       verdict.innerHTML='🟡 <b>本次结论：建议观望，先别买。</b><br>'+
-        '系统没找到"明显划算"的下注——目前市场把各队的赔率定得挺合理，没什么便宜可捡。'+
-        '这是很正常的结果，硬买大概率只是给平台交手续费。';
+        '系统扫描了 <b>'+d.markets_scanned+'</b> 个盘口（夺冠 / 12 个小组头名 / 进16·8·4强），'+
+        '没发现明显便宜的——市场定价挺合理，硬买大概率只是给平台交手续费。';
     }else{
-      verdict.hidden=false;
-      verdict.innerHTML='🟢 <b>本次结论：发现 '+d.value_count+' 个"可能略划算"的标的</b>，'+
-        '合计建议投入 <b>'+money(d.total_stake_amount)+'</b>（约占你预算的 '+pct(d.total_stake_fraction)+'）。'+
-        '注意金额都很小——因为优势很薄，重注不明智。';
-      bets.innerHTML=d.value_bets.map(betCard).join('');
+      verdict.innerHTML='🟢 <b>本次结论：在 '+d.markets_scanned+' 个盘口里发现 '+d.value_count+' 个"可能略划算"的标的</b>，'+
+        '合计建议投入 <b>'+money(d.total_stake_amount)+'</b>（约占预算 '+pct(d.total_stake_fraction)+'）。'+
+        '金额都很小——优势很薄，重注不明智。';
+      bets.innerHTML=d.bets.map(betCard).join('');
     }
-    // 进阶折叠表
-    const tb=document.querySelector('#value-table tbody'); tb.innerHTML='';
-    d.comparison.forEach(o=>{
-      const tr=document.createElement('tr'); if(o.is_value) tr.className='value';
-      const ec=o.edge>=0?'pos':'neg';
-      tr.innerHTML=`<td>${cn(o.team)}</td><td>${pct(o.model_prob)}</td><td>${pct(o.market_prob)}</td>
-        <td>${pct(o.blended_prob)}</td><td class="${ec}">${signed(o.edge)}</td>
-        <td>${o.is_value? pct(o.stake_fraction) : '—'}</td>`;
-      tb.appendChild(tr);
-    });
+    document.getElementById('scanned').textContent='本次扫描的盘口：'+d.scanned_markets.join('、');
     detail.hidden=false;
   }catch(e){ st.className='err'; st.textContent='网络错误：'+e.message; }
   btn.disabled=false;
 }
 
-document.getElementById('run').addEventListener('click',runValue);
+document.getElementById('run').addEventListener('click',runScan);
 loadMarket();
 </script>
 </body>
@@ -340,6 +344,47 @@ def _handle_value(start, qs):
     })
 
 
+def _handle_scan(start, qs):
+    """实时扫描所有可建模的世界杯盘口(夺冠/小组头名/进各轮)，给出价值投注。"""
+    weight = float(qs.get("weight", ["0.35"])[0])
+    sims = min(int(qs.get("sims", ["4000"])[0]), 20000)
+    bankroll = max(1.0, float(qs.get("bankroll", ["1000"])[0]))
+
+    cgroups = calibrated_groups_or_default()
+    probs = tournament_probabilities(cgroups, n_sims=sims)
+    tg = team_groups(cgroups)
+
+    client = PolymarketClient()
+    events = client.world_cup_events()
+    try:  # 夺冠盘不在 world-cup 标签下，单独按 slug 补入
+        events = [client.get_event_by_slug("world-cup-winner")] + events
+    except PolymarketError:
+        pass
+
+    from worldcup_betting.tools.market_scan import classify_event
+    scanned = sorted({c[3] for e in events if (c := classify_event(e.get("title", "")))})
+
+    cfg = RiskConfig(bankroll=bankroll, min_market_prob=0.02)
+    bets = scan_world_cup(events, probs, tg, weight=weight, cfg=cfg)
+    return _json(start, {
+        "params": {"weight": weight, "sims": sims, "bankroll": bankroll},
+        "markets_scanned": len(scanned),
+        "scanned_markets": scanned,
+        "value_count": len(bets),
+        "total_stake_amount": round(sum(b.stake_amount for b in bets), 2),
+        "total_stake_fraction": round(sum(b.stake_fraction for b in bets), 4),
+        "bets": [{"market": b.market, "team": b.team,
+                  "decimal_odds": round(b.decimal_odds, 2),
+                  "model_prob": round(b.model_prob, 4),
+                  "market_prob": round(b.market_prob, 4),
+                  "blended_prob": round(b.blended_prob, 4),
+                  "edge": round(b.edge, 4),
+                  "stake_amount": round(b.stake_amount, 2),
+                  "stake_fraction": round(b.stake_fraction, 4)} for b in bets],
+        "disclaimer": "仅供研究参考，模型有已知偏差，勿据此下注。",
+    })
+
+
 def app(environ, start_response):
     """WSGI 入口。"""
     path = environ.get("PATH_INFO", "/")
@@ -356,6 +401,8 @@ def app(environ, start_response):
             return _handle_outright(start_response)
         if path == "/api/value":
             return _handle_value(start_response, qs)
+        if path == "/api/scan":
+            return _handle_scan(start_response, qs)
         return _json(start_response, {"error": "not found", "path": path}, "404 Not Found")
     except PolymarketError as e:
         return _json(start_response, {"error": "polymarket", "detail": str(e)}, "502 Bad Gateway")
